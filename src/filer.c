@@ -1835,6 +1835,10 @@ int setFileList(const char *path, const char *ext, FILEINFO *files, int cnfmode)
 		files[nfiles++].stats.AttrFile = sceMcFileAttrFile;
 		strcpy(files[nfiles].name, LNG(PS2Disc));
 		files[nfiles++].stats.AttrFile = sceMcFileAttrFile;
+#ifdef ETH
+		strcpy(files[nfiles].name, LNG(PS2Net));
+		files[nfiles++].stats.AttrFile = sceMcFileAttrFile;
+#endif
 		strcpy(files[nfiles].name, LNG(PS2PowerOff));
 		files[nfiles++].stats.AttrFile = sceMcFileAttrFile;
 		strcpy(files[nfiles].name, LNG(OSDSYS));
