@@ -458,6 +458,27 @@ int FileSystem_ReadDir(FSContext *pContext, FSFileInfo *pInfo)
 						return 0;
 					}
 
+					// mmce: getstat is answered by the card, which cannot stat its root, so probe with dopen
+					if (!strcmp(pContext->m_kFile.device->name, "mmce")) {
+						iop_file_t kProbe = pContext->m_kFile;
+
+						pContext->m_kFile.unit++;
+						if (unit > 1) {
+							pContext->m_kFile.unit = DEVICE_UNITS;  // only mmce0 and mmce1 exist
+							continue;
+						}
+
+						kProbe.privdata = NULL;
+						if (kProbe.device->ops->dopen(&kProbe, "/") < 0)
+							continue;
+						kProbe.device->ops->dclose(&kProbe);
+
+						itoa(pInfo->m_Name, unit);
+						pInfo->m_iSize = 0;
+						pInfo->m_eType = FT_DIRECTORY;
+						return 0;
+					}
+
 					// get status from root directory of device
 					ret = pContext->m_kFile.device->ops->getstat(&(pContext->m_kFile), "/", &stat);
 
@@ -531,6 +552,7 @@ int FileSystem_ReadDir(FSContext *pContext, FSFileInfo *pInfo)
 					if (strcmp(ppkDevices[unit]->name, "hdd") &&
 					    strcmp(ppkDevices[unit]->name, "mass") &&
 					    strcmp(ppkDevices[unit]->name, "mc") &&
+					    strcmp(ppkDevices[unit]->name, "mmce") &&
 					    strcmp(ppkDevices[unit]->name, "pfs"))
 						continue;
 
