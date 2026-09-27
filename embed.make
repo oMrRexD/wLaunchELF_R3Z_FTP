@@ -632,7 +632,9 @@ $(EE_OBJS_DIR)vmcman_irx.o: $(EE_ASM_DIR)vmcman_irx.c | $(EE_OBJS_DIR)
 	@echo -e "\033[1m CC  - $@\033[0m"
 	$(EE_CC) $(EE_CFLAGS) $(EE_INCS) -c $< -o $@
 
-$(EE_ASM_DIR)ps2dev9_irx.s: $(PS2SDK)/iop/irx/ps2dev9.irx | $(EE_ASM_DIR)
+# ps2sdk v1.0 (2021) dev9 and ps2ip: with the current ones the SMAP link never comes up on some consoles
+DEV9_SOURCE ?= iop/__v10/ps2dev9.irx
+$(EE_ASM_DIR)ps2dev9_irx.s: $(DEV9_SOURCE) | $(EE_ASM_DIR)
 	$(BIN2S) $< $@ ps2dev9_irx
 
 LOCAL_DEV9_POWEROFF_IRX := iop/dev9_poweroff/dev9_poweroff.irx
@@ -645,7 +647,8 @@ $(EE_ASM_DIR)dev9_poweroff_irx.s: $(LOCAL_DEV9_POWEROFF_IRX) | $(EE_ASM_DIR)
 	$(BIN2S) $< $@ dev9_poweroff_irx
 
 ifeq ($(ETH),1)
-$(EE_ASM_DIR)ps2ip_irx.s: $(PS2SDK)/iop/irx/ps2ip.irx | $(EE_ASM_DIR)
+PS2IP_SOURCE ?= iop/__v10/ps2ip.irx
+$(EE_ASM_DIR)ps2ip_irx.s: $(PS2IP_SOURCE) | $(EE_ASM_DIR)
 	$(BIN2S) $< $@ ps2ip_irx
 
 $(EE_ASM_DIR)udptty.s: $(PS2SDK)/iop/irx/udptty.irx | $(EE_ASM_DIR)

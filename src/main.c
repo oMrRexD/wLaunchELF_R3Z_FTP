@@ -144,6 +144,17 @@ int main(int argc, char *argv[])
 	//But before we start that, we need to validate CNF_Path
 	validateConfiguredCnfPath();
 
+#ifdef EXFAT
+	//wLaunchELF FTP build: bring up the internal HDD first (ata0:), since a storage stack switch may
+	//reset the IOP, and only then the network
+	loadAtaModules();
+#endif
+#ifdef ETH
+	//start the network and FTP server right away, same as MISC/PS2Net
+	loadNetModules();
+	snprintf(mainMsg, MAX_PATH, "%s", netConfig);
+#endif
+
 	RunPath[0] = 0;  //Nothing to run yet
 	cdmode = -1;     //flag unchecked cdmode state
 	event = 1;       //event = initial entry
