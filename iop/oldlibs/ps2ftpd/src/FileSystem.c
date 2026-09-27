@@ -43,6 +43,15 @@ extern char *itoa(char *in, int val);
 
 #define DEVINFOARRAY(d, ofs) ((iop_device_t **)((d)->text_start + (d)->text_size + (d)->data_size + (ofs)))
 
+// iomanX exports its device table; its .bss layout changed, so the offset above is only kept for old ioman
+static iop_device_t **FileSystem_GetDeviceArray(ModuleInfo_t *pkModule, int offset)
+{
+	if (!strcmp(IOPMGR_IOMANX_IDENT, (char *)pkModule->name))
+		return (iop_device_t **)iomanX_GetDeviceList();
+
+	return DEVINFOARRAY(pkModule, offset);
+}
+
 #define DEVICE_UNITS 10
 
 // buffer used for concating filenames internally
@@ -511,7 +520,7 @@ int FileSystem_ReadDir(FSContext *pContext, FSFileInfo *pInfo)
 
 				// scan filesystem devices
 
-				ppkDevices = DEVINFOARRAY(pkModule, dev_offset);
+				ppkDevices = FileSystem_GetDeviceArray(pkModule, dev_offset);
 				while (pContext->m_kFile.unit < num_devices) {
 					int unit = pContext->m_kFile.unit;
 					pContext->m_kFile.unit++;
@@ -933,7 +942,7 @@ iop_device_t *FileSystem_ScanDevice(const char *pDevice, int iNumDevices, const 
 		return NULL;  // unknown device, we cannot determine the offset here...
 
 	// get device info array
-	ppkDevices = DEVINFOARRAY(pkModule, offset);
+	ppkDevices = FileSystem_GetDeviceArray(pkModule, offset);
 
 	// scan array
 	for (i = 0; i < iNumDevices; i++) {
