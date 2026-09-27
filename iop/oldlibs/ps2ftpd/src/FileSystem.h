@@ -41,6 +41,7 @@ typedef struct FSContext
 #ifndef LINUX
 	FSType m_eType;
 	iop_file_t m_kFile;
+	int m_iOpen;  // m_kFile holds a file/dir that was really opened, so it may be closed
 #else
 	int m_iFile;
 	DIR *m_pDir;

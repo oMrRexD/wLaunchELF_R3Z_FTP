@@ -89,7 +89,7 @@ char *uitoa(char *in, u64 val)
 }
 
 // this shared buffer is used for everything the clients do
-static char buffer[8192];
+static char buffer[32768];  // fewer round trips per transfer on slow devices such as mmce
 #define BUFFER_OFFSET 4096  // use this if you need to use buffer & push it to FtpClient_Send()
 
 void FtpClient_Create(FtpClient *pClient, FtpServer *pServer, int iControlSocket)
@@ -809,6 +809,8 @@ void FtpClient_OnDataCleanup(FtpClient *pClient)
 
 	pClient->m_eConnState = CONNSTATE_IDLE;
 	pClient->m_eDataMode = DATAMODE_IDLE;
+	// a data connection accepted before its command arrives must not replay the previous transfer
+	pClient->m_eDataAction = DATAACTION_NONE;
 }
 
 void FtpClient_HandleDataConnect(FtpClient *pClient)
