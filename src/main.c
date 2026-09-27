@@ -196,6 +196,9 @@ int main(int argc, char *argv[])
 			//*/
 		done_discControl:
 		MainMenuState_UpdateTimers(&menu_state, &event);
+#if defined(ETH) && defined(UDPFS) && defined(EXFAT)
+		receberVerificar(mainMsg, &event);  //games sent from the PC ("Mandar jogos pro PS2")
+#endif
 
 		//Display section
 		if (event || post_event) {  //NB: We need to update two frame buffers per event

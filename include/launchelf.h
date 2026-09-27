@@ -387,6 +387,10 @@ int loadMx4sioModules(void);
 #ifdef EXFAT
 int loadAtaModules(void);
 #endif
+#if defined(ETH) && defined(UDPFS) && defined(EXFAT)
+/* receber.c */
+void receberVerificar(char *msg, int *event);  //main menu: pick up games the PC sends over udpfs
+#endif
 
 /* elf.c */
 int checkELFheader(char *filename);
