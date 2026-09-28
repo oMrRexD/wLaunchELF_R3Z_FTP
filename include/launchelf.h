@@ -391,6 +391,10 @@ int loadAtaModules(void);
 /* receber.c */
 void receberVerificar(char *msg, int *event);  //main menu: pick up games the PC sends over udpfs
 #endif
+#if defined(ETH) && defined(EXFAT)
+/* comando.c */
+void comandoVerificar(char *runpath, int tamanho, char *msg);  //main menu: run a command the PC sends
+#endif
 
 /* elf.c */
 int checkELFheader(char *filename);
