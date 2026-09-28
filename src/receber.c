@@ -135,10 +135,10 @@ static void desenharProgresso(const ItemReceber *it, int i, int n, u64 pos, u64 
 	unsigned int kbs = ms ? (unsigned int)((pos / 1024) * 1000 / ms) : 0;
 	unsigned int falta = kbs ? (unsigned int)(((it->tamanho - pos) / 1024) / kbs) : 0;
 
-	snprintf(texto, sizeof(texto), "Recebendo %d/%d: %.40s  %u%%  %u/%u MB  %u KB/s  faltam %u min%s  (triangulo cancela)",
+	snprintf(texto, sizeof(texto), "Recebendo %d/%d: %.28s  %u%%  %u/%u MB  %u KB/s  faltam %u min%s",
 	         i + 1, n, it->nome, (unsigned int)(it->tamanho ? pos * 100 / it->tamanho : 0),
 	         (unsigned int)(pos >> 20), (unsigned int)(it->tamanho >> 20), kbs, (falta + 59) / 60,
-	         retomadas ? "  (retomado)" : "");
+	         retomadas ? "  (retomada)" : "");
 	drawMsg(texto);
 }
 
