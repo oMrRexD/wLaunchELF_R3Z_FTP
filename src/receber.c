@@ -33,6 +33,8 @@
 #define RECEBER_PREPARO RECEBER_PREPARO_DIR "/"
 #define RECEBER_MAX_ITENS 32
 #define RECEBER_INTERVALO_MS 3000
+#define RECEBER_BLOCO (256 * 1024)
+#define RECEBER_RETOMADAS 8
 
 typedef struct
 {
@@ -46,6 +48,7 @@ typedef struct
 
 static ItemReceber itens[RECEBER_MAX_ITENS];
 static char pedido[8192];
+static u8 bloco[RECEBER_BLOCO] __attribute__((aligned(64)));
 
 //Returns 1 with a complete job, 0 when there is nothing (yet) and -1 for a job this build cannot use
 static int lerPedido(int *n_itens)
@@ -125,10 +128,108 @@ static u64 tamanhoDe(const char *caminho, int *existe)
 	return *existe ? (((u64)st.hisize << 32) | st.size) : 0;
 }
 
+static void desenharProgresso(const ItemReceber *it, int i, int n, u64 pos, u64 inicio, int retomadas)
+{
+	char texto[MAX_PATH];
+	u64 ms = Timer() - inicio;
+	unsigned int kbs = ms ? (unsigned int)((pos / 1024) * 1000 / ms) : 0;
+	unsigned int falta = kbs ? (unsigned int)(((it->tamanho - pos) / 1024) / kbs) : 0;
+
+	snprintf(texto, sizeof(texto), "Recebendo %d/%d: %.40s  %u%%  %u/%u MB  %u KB/s  faltam %u min%s  (triangulo cancela)",
+	         i + 1, n, it->nome, (unsigned int)(it->tamanho ? pos * 100 / it->tamanho : 0),
+	         (unsigned int)(pos >> 20), (unsigned int)(it->tamanho >> 20), kbs, (falta + 59) / 60,
+	         retomadas ? "  (retomado)" : "");
+	drawMsg(texto);
+}
+
+//Copies one game from udpfs to the HDD. When the udpfs server gives up on the PS2 (it does after about a
+//second without acknowledgements, and the IOP stalls that long now and then while writing to the HDD), the
+//udpfs client stays disconnected for good: reload the udpfs stack (an IOP reset) and resume where it
+//stopped. Returns 0 when the whole file arrived, 1 when cancelled and -1 on failure.
+static int copiarComRetomada(ItemReceber *it, const char *origem, const char *destino, int i, int n)
+{
+	static char zero = 0;
+	int in = -1, out, lidos, pedir, retomadas = 0;
+	u64 pos = 0, inicio = Timer(), ultimo = 0;
+
+	out = fileXioOpen(destino, FIO_O_WRONLY | FIO_O_CREAT | FIO_O_TRUNC, fileMode);
+	if (out < 0)
+		return -1;
+	//reserve the whole size before the transfer, so no cluster allocation happens in the middle of it
+	//(harmless if the filesystem does not grow a file on a seek past the end)
+	if (it->tamanho > 0) {
+		drawMsg("Recebendo jogos do PC: reservando espaco no HD...");
+		if (fileXioLseek64(out, (s64)it->tamanho - 1, SEEK_SET) == (s64)it->tamanho - 1)
+			fileXioWrite(out, &zero, 1);
+		fileXioLseek64(out, 0, SEEK_SET);
+	}
+
+	while (pos < it->tamanho) {
+		if (in < 0) {
+			in = fileXioOpen(origem, FIO_O_RDONLY);
+			if (in >= 0 && pos > 0 && fileXioLseek64(in, (s64)pos, SEEK_SET) != (s64)pos) {
+				fileXioClose(in);
+				in = -1;
+			}
+		}
+		pedir = (it->tamanho - pos > RECEBER_BLOCO) ? RECEBER_BLOCO : (int)(it->tamanho - pos);
+		lidos = (in >= 0) ? fileXioRead(in, bloco, pedir) : -1;
+		if (lidos <= 0) {
+			if (in >= 0)
+				fileXioClose(in);
+			in = -1;
+			fileXioClose(out);
+			if (++retomadas > RECEBER_RETOMADAS) {
+				it->gravado = pos;
+				return -1;
+			}
+			{
+				char texto[MAX_PATH];
+				snprintf(texto, sizeof(texto), "Conexao com o PC caiu em %u MB: reconectando (%d de %d)...",
+				         (unsigned int)(pos >> 20), retomadas, RECEBER_RETOMADAS);
+				drawMsg(texto);
+			}
+			reloadUdpfsModules();
+			loadAtaModules();
+			out = fileXioOpen(destino, FIO_O_WRONLY);
+			if (out < 0 || fileXioLseek64(out, (s64)pos, SEEK_SET) != (s64)pos) {
+				if (out >= 0)
+					fileXioClose(out);
+				it->gravado = pos;
+				return -1;
+			}
+			continue;
+		}
+		if (fileXioWrite(out, bloco, lidos) != lidos) {  //e.g. the HDD is full
+			fileXioClose(in);
+			fileXioClose(out);
+			it->gravado = pos;
+			return -1;
+		}
+		pos += lidos;
+
+		if (Timer() - ultimo >= 500) {
+			ultimo = Timer();
+			desenharProgresso(it, i, n, pos, inicio, retomadas);
+			if (readpad_noRepeat() && (new_pad & PAD_TRIANGLE) &&
+			    ynDialog("Cancelar o recebimento deste jogo?") > 0) {
+				fileXioClose(in);
+				fileXioClose(out);
+				it->gravado = pos;
+				return 1;
+			}
+		}
+	}
+	if (in >= 0)
+		fileXioClose(in);
+	fileXioClose(out);
+	it->gravado = pos;
+	return 0;
+}
+
 static void receberJogos(char *msg)
 {
-	char destino[MAX_PATH], preparo[MAX_PATH], pasta[MAX_PATH], texto[MAX_PATH];
-	FILEINFO f;
+	char destino[MAX_PATH], preparo[MAX_PATH], pasta[MAX_PATH], texto[MAX_PATH], origem[MAX_PATH];
 	u64 inicio;
 	int n = 0, i, r, dd, existe, servidor = 0, parar = 0, recebidos = 0;
 
@@ -175,26 +276,16 @@ static void receberJogos(char *msg)
 			snprintf(texto, sizeof(texto), "Recebendo %d de %d (%.3s): %.255s", i + 1, n, itens[i].pasta, itens[i].nome);
 			drawMsg(texto);
 
-			//copy() is the file browser's paste routine: progress, speed, and any button offers to cancel
-			memset(&f, 0, sizeof(f));
-			strcpy(f.name, itens[i].nome);
-			snprintf((char *)f.stats.EntryName, 32, "%.31s", f.name);
-			f.stats.AttrFile = MC_ATTR_norm_file;
-			f.stats.FileSizeByte = (u32)itens[i].tamanho;
-			f.stats.Reserve2 = (u32)(itens[i].tamanho >> 32);
-			PasteMode = PM_NORMAL;
-			PM_flag[0] = PM_NORMAL;
-			PM_file[0] = -1;
-			written_size = 0;
-			PasteTime = Timer();
+			snprintf(preparo, sizeof(preparo), "%s%.255s", RECEBER_PREPARO, itens[i].nome);
+			snprintf(origem, sizeof(origem), "udpfs:/%.255s", itens[i].nome);
 			inicio = Timer();
-			r = copy(RECEBER_PREPARO, "udpfs:/", f, 0);
+			r = copiarComRetomada(&itens[i], origem, preparo, i, n);
 			itens[i].segundos = (int)((Timer() - inicio) / 1000);
 
 			//a game only lands in DVD or CD once it is complete, so OPL never lists half a copy
-			snprintf(preparo, sizeof(preparo), "%s%.255s", RECEBER_PREPARO, itens[i].nome);
-			itens[i].gravado = tamanhoDe(preparo, &existe);
-			if (r >= 0 && existe && itens[i].gravado == itens[i].tamanho) {
+			//(the staged file already has its full size from the reservation, so trust r and the byte count)
+			tamanhoDe(preparo, &existe);
+			if (r == 0 && existe && itens[i].gravado == itens[i].tamanho) {
 				snprintf(pasta, sizeof(pasta), "ata0:/%.3s", itens[i].pasta);
 				fileXioMkdir(pasta, fileMode);
 				if (fileXioRename(preparo, destino) >= 0) {
@@ -205,7 +296,7 @@ static void receberJogos(char *msg)
 			} else {
 				if (existe)
 					fileXioRemove(preparo);
-				itens[i].estado = "FALHOU";
+				itens[i].estado = (r == 1) ? "CANCELADO" : "FALHOU";
 				parar = 1;  //a failed or cancelled copy stops the rest
 			}
 		}
