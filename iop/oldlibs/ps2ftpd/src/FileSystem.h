@@ -93,7 +93,7 @@ void FileSystem_Create(FSContext *pContext);
 void FileSystem_Destroy(FSContext *pContext);
 
 //! Open file for readin or writing
-int FileSystem_OpenFile(FSContext *pContext, const char *pFile, FileMode eMode, int iContinue);
+int FileSystem_OpenFile(FSContext *pContext, const char *pFile, FileMode eMode, s64 iContinue);
 
 //! Open directory for listing
 int FileSystem_OpenDir(FSContext *pContext, const char *pDir);

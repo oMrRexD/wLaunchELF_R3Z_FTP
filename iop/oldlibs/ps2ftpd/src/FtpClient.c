@@ -382,8 +382,20 @@ void FtpClient_OnCommand(FtpClient *pClient, const char *pString)
 						c++;
 					}
 
-					if (!*c)
-						FtpClient_OnCmdRest(pClient, (!*c) ? strtol(marker, NULL, 10) : -1);
+					if (!*c) {
+						// 64-bit parse (strtol stops at 2 GB); absurd values are refused like bad ones
+						s64 iMarker = 0;
+
+						for (c = marker; *c; c++) {
+							if (iMarker > 0x0CCCCCCCCCCCCCCCLL) {
+								iMarker = -1;
+								break;
+							}
+							iMarker = iMarker * 10 + (*c - '0');
+						}
+						FtpClient_OnCmdRest(pClient, iMarker);
+					} else
+						FtpClient_OnCmdRest(pClient, -1);  // used to send no reply at all
 				} else
 					FtpClient_Send(pClient, 500, pClient->m_pMessages[FTPMSG_REQUIRES_PARAMETERS]);
 			} break;

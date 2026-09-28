@@ -77,7 +77,7 @@ void FileSystem_Destroy(FSContext *pContext)
 	FileSystem_Close(pContext);
 }
 
-int FileSystem_OpenFile(FSContext *pContext, const char *pFile, FileMode eMode, int iContinue)
+int FileSystem_OpenFile(FSContext *pContext, const char *pFile, FileMode eMode, s64 iContinue)
 {
 	int flags;
 	int fileMode = 0;
@@ -126,8 +126,12 @@ int FileSystem_OpenFile(FSContext *pContext, const char *pFile, FileMode eMode, 
 					if (iContinue < 0) {
 						if (pContext->m_kFile.device->ops->lseek(&(pContext->m_kFile), 0, SEEK_END) >= 0)
 							return 0;
-					} else {
-						if (pContext->m_kFile.device->ops->lseek(&(pContext->m_kFile), iContinue, SEEK_SET) >= 0)
+					} else if ((pContext->m_kFile.device->type & IOP_DT_FSEXT) && pContext->m_kFile.device->ops->lseek64) {
+						// extended devices (ata, usb, mmce...) seek past 2 GB
+						if (pContext->m_kFile.device->ops->lseek64(&(pContext->m_kFile), iContinue, SEEK_SET) >= 0)
+							return 0;
+					} else if (iContinue <= 0x7FFFFFFF) {
+						if (pContext->m_kFile.device->ops->lseek(&(pContext->m_kFile), (int)iContinue, SEEK_SET) >= 0)
 							return 0;
 					}
 
