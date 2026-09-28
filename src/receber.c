@@ -2,7 +2,7 @@
 // File name:   receber.c
 // wLaunchELF FTP: receive games sent from the PC.
 //
-// The PC script ("Mandar jogos pro PS2") serves the games with udpfsd and then, over FTP, drops a job
+// The PC script ("Send Games to PS2") serves the games with udpfsd and then, over FTP, drops a job
 // file on the internal HDD. From the main menu this polls for that file, switches the network to udpfs
 // (udpfs and the FTP server use different network drivers, so the FTP server stops), copies each game
 // to ata0:/DVD or ata0:/CD through a staging folder, writes a result file and switches back to FTP,
@@ -135,10 +135,10 @@ static void desenharProgresso(const ItemReceber *it, int i, int n, u64 pos, u64 
 	unsigned int kbs = ms ? (unsigned int)((pos / 1024) * 1000 / ms) : 0;
 	unsigned int falta = kbs ? (unsigned int)(((it->tamanho - pos) / 1024) / kbs) : 0;
 
-	snprintf(texto, sizeof(texto), "Recebendo %d/%d: %.28s  %u%%  %u/%u MB  %u KB/s  faltam %u min%s",
+	snprintf(texto, sizeof(texto), LNG(PC_Recv_Progress),
 	         i + 1, n, it->nome, (unsigned int)(it->tamanho ? pos * 100 / it->tamanho : 0),
 	         (unsigned int)(pos >> 20), (unsigned int)(it->tamanho >> 20), kbs, (falta + 59) / 60,
-	         retomadas ? "  (retomada)" : "");
+	         retomadas ? LNG(PC_Recv_Resumed) : "");
 	drawMsg(texto);
 }
 
@@ -158,7 +158,7 @@ static int copiarComRetomada(ItemReceber *it, const char *origem, const char *de
 	//reserve the whole size before the transfer, so no cluster allocation happens in the middle of it
 	//(harmless if the filesystem does not grow a file on a seek past the end)
 	if (it->tamanho > 0) {
-		drawMsg("Recebendo jogos do PC: reservando espaco no HD...");
+		drawMsg(LNG(PC_Recv_Reserving));
 		if (fileXioLseek64(out, (s64)it->tamanho - 1, SEEK_SET) == (s64)it->tamanho - 1)
 			fileXioWrite(out, &zero, 1);
 		fileXioLseek64(out, 0, SEEK_SET);
@@ -185,7 +185,7 @@ static int copiarComRetomada(ItemReceber *it, const char *origem, const char *de
 			}
 			{
 				char texto[MAX_PATH];
-				snprintf(texto, sizeof(texto), "Conexao com o PC caiu em %u MB: reconectando (%d de %d)...",
+				snprintf(texto, sizeof(texto), LNG(PC_Recv_Reconnecting),
 				         (unsigned int)(pos >> 20), retomadas, RECEBER_RETOMADAS);
 				drawMsg(texto);
 			}
@@ -212,7 +212,7 @@ static int copiarComRetomada(ItemReceber *it, const char *origem, const char *de
 			ultimo = Timer();
 			desenharProgresso(it, i, n, pos, inicio, retomadas);
 			if (readpad_noRepeat() && (new_pad & PAD_TRIANGLE) &&
-			    ynDialog("Cancelar o recebimento deste jogo?") > 0) {
+			    ynDialog(LNG(PC_Recv_Cancel)) > 0) {
 				fileXioClose(in);
 				fileXioClose(out);
 				it->gravado = pos;
@@ -239,7 +239,7 @@ static void receberJogos(char *msg)
 	//taking the job away tells the PC it was picked up, and a job is never run twice
 	fileXioRemove(RECEBER_PEDIDO);
 	if (r < 0) {
-		snprintf(msg, MAX_PATH, "Pedido do PC invalido (feito para outra versao?)");
+		snprintf(msg, MAX_PATH, "%s", LNG(PC_Recv_Bad_Job));
 		return;
 	}
 
@@ -249,7 +249,7 @@ static void receberJogos(char *msg)
 		itens[i].segundos = 0;
 	}
 
-	drawMsg("Recebendo jogos do PC: trocando a rede para o udpfs (o FTP desliga)...");
+	drawMsg(LNG(PC_Recv_To_Udpfs));
 	if (prepareTransferDeviceStacks("udpfs:/", RECEBER_PREPARO) == TRANSFER_STACK_READY) {
 		//the PC starts its udpfs server before sending the job
 		for (i = 0; i < 5 && !servidor; i++) {
@@ -273,7 +273,7 @@ static void receberJogos(char *msg)
 				itens[i].estado = "JA_EXISTIA";
 				continue;
 			}
-			snprintf(texto, sizeof(texto), "Recebendo %d de %d (%.3s): %.255s", i + 1, n, itens[i].pasta, itens[i].nome);
+			snprintf(texto, sizeof(texto), LNG(PC_Recv_Item), i + 1, n, itens[i].pasta, itens[i].nome);
 			drawMsg(texto);
 
 			snprintf(preparo, sizeof(preparo), "%s%.255s", RECEBER_PREPARO, itens[i].nome);
@@ -305,7 +305,7 @@ static void receberJogos(char *msg)
 	gravarResultado(n);
 
 	//back to the FTP server (another IOP reset), then the storage it exposes, as at startup
-	drawMsg("Recebendo jogos do PC: voltando para o FTP...");
+	drawMsg(LNG(PC_Recv_Back_To_FTP));
 	loadNetModules();
 #ifdef MMCE
 	loadMmceModules();
@@ -313,9 +313,9 @@ static void receberJogos(char *msg)
 	loadAtaModules();
 
 	if (!servidor)
-		snprintf(msg, MAX_PATH, "Envio do PC: servidor udpfs nao encontrado");
+		snprintf(msg, MAX_PATH, "%s", LNG(PC_Recv_No_Server));
 	else
-		snprintf(msg, MAX_PATH, "Recebidos do PC: %d de %d jogo(s)", recebidos, n);
+		snprintf(msg, MAX_PATH, LNG(PC_Recv_Done), recebidos, n);
 }
 
 //Called from the main menu loop: every few seconds, look for a job from the PC

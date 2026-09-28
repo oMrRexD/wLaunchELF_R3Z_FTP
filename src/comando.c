@@ -44,7 +44,7 @@ void comandoVerificar(char *runpath, int tamanho, char *msg)
 	fileXioRemove(COMANDO_ARQUIVO);
 
 	if (strncmp(texto, "PS2-COMANDO 1", 13) || (linha = strchr(texto, '\n')) == NULL) {
-		snprintf(msg, MAX_PATH, "Comando do PC invalido (feito para outra versao?)");
+		snprintf(msg, MAX_PATH, "%s", LNG(PC_Cmd_Bad));
 		return;
 	}
 	linha++;
@@ -60,7 +60,7 @@ void comandoVerificar(char *runpath, int tamanho, char *msg)
 	else if (!strcmp(linha, "DESLIGAR"))
 		snprintf(runpath, tamanho, "%s", setting->Misc_PS2PowerOff);
 	else
-		snprintf(msg, MAX_PATH, "Comando do PC desconhecido: %.60s", linha);
+		snprintf(msg, MAX_PATH, LNG(PC_Cmd_Unknown), linha);
 }
 
 #endif
