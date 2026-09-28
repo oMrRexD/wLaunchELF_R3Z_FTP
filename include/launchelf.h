@@ -393,7 +393,7 @@ void receberVerificar(char *msg, int *event);  //main menu: pick up games the PC
 #endif
 #if defined(ETH) && defined(EXFAT)
 /* comando.c */
-void comandoVerificar(char *runpath, int tamanho, char *msg);  //main menu: run a command the PC sends
+void comandoVerificar(char *runpath, int tamanho, char *msg, int *event);  //main menu: run a command the PC sends
 #endif
 
 /* elf.c */

@@ -17,7 +17,7 @@
 #define COMANDO_ARQUIVO "ata0:/PS2-COMANDO.TXT"
 #define COMANDO_INTERVALO_MS 3000
 
-void comandoVerificar(char *runpath, int tamanho, char *msg)
+void comandoVerificar(char *runpath, int tamanho, char *msg, int *event)
 {
 	static u64 proxima = 0;
 	static char texto[1024];
@@ -45,6 +45,7 @@ void comandoVerificar(char *runpath, int tamanho, char *msg)
 
 	if (strncmp(texto, "PS2-COMANDO 1", 13) || (linha = strchr(texto, '\n')) == NULL) {
 		snprintf(msg, MAX_PATH, "%s", LNG(PC_Cmd_Bad));
+		*event |= 1;  //redraw now, not only on the next key press
 		return;
 	}
 	linha++;
@@ -59,8 +60,10 @@ void comandoVerificar(char *runpath, int tamanho, char *msg)
 		snprintf(runpath, tamanho, "%s", setting->Misc_OSDSYS);
 	else if (!strcmp(linha, "DESLIGAR"))
 		snprintf(runpath, tamanho, "%s", setting->Misc_PS2PowerOff);
-	else
+	else {
 		snprintf(msg, MAX_PATH, LNG(PC_Cmd_Unknown), linha);
+		*event |= 1;
+	}
 }
 
 #endif

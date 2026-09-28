@@ -200,7 +200,7 @@ int main(int argc, char *argv[])
 		receberVerificar(mainMsg, &event);  //games sent from the PC ("Mandar jogos pro PS2")
 #endif
 #if defined(ETH) && defined(EXFAT)
-		comandoVerificar(RunPath, sizeof(RunPath), mainMsg);  //commands sent from the PC ("Comandar PS2")
+		comandoVerificar(RunPath, sizeof(RunPath), mainMsg, &event);  //commands sent from the PC ("Comandar PS2")
 #endif
 
 		//Display section
