@@ -1,0 +1,4 @@
+# .bat com CRLF no checkout: o cmd.exe se perde em .bat com fim de linha LF
+*.bat text eol=crlf
+# .ps1 exatamente como foram testados (LF), sem conversao nenhuma
+*.ps1 -text
